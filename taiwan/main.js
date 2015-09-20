@@ -1,12 +1,13 @@
 $.ajaxSetup({async: false});
 
-$.getJSON('Dengue.json', function (data) {
-    DengueTW = data
-});
-function initialize() {
-    var map,
+var map,
         currentPlayIndex = false,
         cunli;
+
+$.getJSON('Dengue.json', function (data) {
+    DengueTW = data;
+});
+function initialize() {
 
     /*map setting*/
     $('#map-canvas').height(window.outerHeight / 2.2);
@@ -16,20 +17,53 @@ function initialize() {
         center: {lat: 23.00, lng: 120.30}
     });
 
-    $.getJSON('../geojson/cunli.json', function (data) {
-        cunli = map.data.addGeoJson(data);
+    $.getJSON('cunli.json', function (data) {
+        cunli = map.data.addGeoJson(topojson.feature(data, data.objects.cunli));
     });
 
+    var areas = [];
     cunli.forEach(function (value) {
         var key = value.getProperty('VILLAGE_ID'),
-            count = 0;
+                countyId = value.getProperty('COUNTY_ID'),
+                townId = value.getProperty('TOWN_ID'),
+                count = 0;
         if (DengueTW[key]) {
             DengueTW[key].forEach(function (val) {
                 count += val[1];
             });
         }
         value.setProperty('num', count);
+        
+        if(countyId.length === 2) {
+            countyId += '000';
+        }
+        if(!areas[countyId]) {
+            areas[countyId] = value.getProperty('C_Name');
+        }
+        if(!areas[townId]) {
+            areas[townId] = value.getProperty('C_Name') + value.getProperty('T_Name');
+        }
     });
+
+    var totalNum = 0, ignoreNum = 0;
+    var block = '下面病例數字未包含村里資訊，因此無法在地圖中顯示：<div class="clearfix"><br /></div>';
+    $.each(DengueTW, function (k, v) {
+        if (k.length !== 11) {
+            var num = 0;
+            for (i in v) {
+                num += v[i][1];
+            }
+            if (k !== 'total') {
+                ignoreNum += num;
+                block += '<div class="col-md-2">' + areas[k] + ': ' + num + '</div>';
+            } else {
+                totalNum = num;
+            }
+        }
+    })
+    block += '<div class="clearfix"><br /></div>';
+    block += '目前共有病例 ' + totalNum + ' ，無法顯示的數量為 ' + ignoreNum;
+    $('div#listNoneCunli').html(block);
 
     map.data.setStyle(function (feature) {
         color = ColorBar(feature.getProperty('num'));
@@ -90,7 +124,7 @@ function initialize() {
         }
         return false;
     });
-    
+
     $('#playButton2').on('click', function () {
         var maxIndex = DengueTW['total'].length;
         if (false === currentPlayIndex) {
@@ -123,8 +157,8 @@ function createStockChart(Cunli, cunli) {
 
     Highcharts.setOptions({
         lang: {
-            months: ['一月', '二月', '三月', '四月', '五月', '六月',  '七月', '八月', '九月', '十月', '十一月', '十二月'],
-            shortMonths: ['一月', '二月', '三月', '四月', '五月', '六月',  '七月', '八月', '九月', '十月', '十一月', '十二月'],
+            months: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+            shortMonths: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
             weekdays: ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'],
             loading: '載入中'
         }
@@ -167,14 +201,14 @@ function createStockChart(Cunli, cunli) {
 
 function showDateMap(clickedDate, cunli) {
     var yyyy = clickedDate.getFullYear().toString(),
-        mm = (clickedDate.getMonth() + 1).toString(),
-        dd = clickedDate.getDate().toString(),
-        clickedDateKey = yyyy + '-' + (mm[1] ? mm : '0' + mm[0]) + '-' + (dd[1] ? dd : '0' + dd[0]);
+            mm = (clickedDate.getMonth() + 1).toString(),
+            dd = clickedDate.getDate().toString(),
+            clickedDateKey = yyyy + '-' + (mm[1] ? mm : '0' + mm[0]) + '-' + (dd[1] ? dd : '0' + dd[0]);
 
     $('#title').html(clickedDateKey + ' 累積病例');
     cunli.forEach(function (value) {
-        var key = value.getProperty('T_Name') + value.getProperty('V_Name'),
-            count = 0;
+        var key = value.getProperty('VILLAGE_ID'),
+                count = 0;
 
         if (DengueTW[key]) {
             DengueTW[key].forEach(function (val) {
@@ -190,14 +224,14 @@ function showDateMap(clickedDate, cunli) {
 
 function showDayMap(clickedDate, cunli) {
     var yyyy = clickedDate.getFullYear().toString(),
-        mm = (clickedDate.getMonth() + 1).toString(),
-        dd = clickedDate.getDate().toString(),
-        clickedDateKey = yyyy + '-' + (mm[1] ? mm : "0" + mm[0]) + '-' + (dd[1] ? dd : "0" + dd[0]);
+            mm = (clickedDate.getMonth() + 1).toString(),
+            dd = clickedDate.getDate().toString(),
+            clickedDateKey = yyyy + '-' + (mm[1] ? mm : "0" + mm[0]) + '-' + (dd[1] ? dd : "0" + dd[0]);
 
     $('#title').html(clickedDateKey + ' 當日病例');
     cunli.forEach(function (value) {
-        var key = value.getProperty('T_Name') + value.getProperty('V_Name'),
-            count = 0;
+        var key = value.getProperty('VILLAGE_ID'),
+                count = 0;
 
         if (DengueTW[key]) {
             DengueTW[key].forEach(function (val) {
